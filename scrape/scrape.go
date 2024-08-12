@@ -765,8 +765,17 @@ func (s *targetScraper) readResponse(ctx context.Context, resp *http.Response, w
 	if s.bodySizeLimit <= 0 {
 		s.bodySizeLimit = math.MaxInt64
 	}
+	var (
+		n   int64
+		err error
+	)
 	if resp.Header.Get("Content-Encoding") != "gzip" {
-		n, err := io.Copy(w, io.LimitReader(resp.Body, s.bodySizeLimit))
+		r := io.LimitReader(resp.Body, s.bodySizeLimit)
+		if b, ok := w.(*bytes.Buffer); ok {
+			n, err = b.ReadFrom(r)
+		} else {
+			n, err = io.Copy(w, r)
+		}
 		if err != nil {
 			return "", err
 		}
@@ -791,7 +800,12 @@ func (s *targetScraper) readResponse(ctx context.Context, resp *http.Response, w
 		}
 	}
 
-	n, err := io.Copy(w, io.LimitReader(s.gzipr, s.bodySizeLimit))
+	r := io.LimitReader(s.gzipr, s.bodySizeLimit)
+	if b, ok := w.(*bytes.Buffer); ok {
+		n, err = b.ReadFrom(r)
+	} else {
+		n, err = io.Copy(w, r)
+	}
 	s.gzipr.Close()
 	if err != nil {
 		return "", err
